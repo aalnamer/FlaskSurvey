@@ -1,8 +1,10 @@
-from flask import Flask, request, render_template, redirect, flash
+from flask import Flask, request, render_template, redirect, flash, session
 from flask_debugtoolbar import DebugToolbarExtension
 from surveys import satisfaction_survey as survey
 
 surveys=survey
+
+RESPONSES = "responses"
 
  
 app = Flask(__name__)
@@ -10,7 +12,6 @@ app.config['SECRET_KEY'] = 'for'
 app.config["DEBUG_TB_INTERCEPT_REDIRECTS"] = False
 debug = DebugToolbarExtension(app)
 
-RESPONSES = []
 
 @app.route("/")
 def show_survey():
@@ -18,34 +19,42 @@ def show_survey():
 
 @app.route("/begin", methods =["POST"])
 def begin_button():
-    return redirect("/questions/0"), list.clear(RESPONSES)
+    session[RESPONSES] = []
+
+    return redirect("/questions/0")
 
 
 @app.route("/answer", methods= ["POST"])
 def question_handler():
     try:
         choice = request.form['answer']
-        RESPONSES.append(choice)
+        response = session[RESPONSES]
+        response.append(choice)
+        session[RESPONSES]= response
+        response_length = len(response)
+        if response_length == 4:
+            return redirect ("/complete")
     except:
         flash("Please choose an option!", "error")
-    
-    
-    return redirect(f"/questions/{len(RESPONSES)}")
+
+    return redirect(f"/questions/{len(RESPONSES)}") 
 
 
-@app.route("/questions/<int:qid>")
-def show_questions(qid):
-    if (len(RESPONSES) != qid):
-        flash(f"Please do not press the back key, invalid question ID: {qid}.")
-        return redirect(f"/questions/{len(RESPONSES)}")
-    
-    if (len(RESPONSES) == len(survey.questions)):
-        return redirect("/complete"), list.clear(RESPONSES)
-    
-    questions = survey.questions[qid]
-    return render_template("survey_questions.html", question_num=qid, questions = questions)
+@app.route("/questions/<int:question_id>")
+def show_questions(question_id):
+    response = session.get(RESPONSES)
 
 
+    if (len(response) == len(survey.questions)):
+        return redirect("/complete"), 
+    
+    if (len(response) != question_id):
+        return redirect(f"/questions/{len(response)}")
+    
+    
+    questions = survey.questions[question_id]
+
+    return render_template("survey_questions.html", question_num=question_id, questions = questions)
 
 
 @app.route("/complete")
